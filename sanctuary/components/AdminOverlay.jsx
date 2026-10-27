@@ -1,91 +1,246 @@
 'use client';
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { X, Plus, Trash2 } from 'lucide-react';
+import { X, Save, BookOpen, Database, Video, Share2, KeyRound } from 'lucide-react';
 
-const TABS = ['Diary', 'Data links', 'Media', 'Socials'];
-const blankDiary = { title: '', body: '', tags: [], date: new Date().toISOString().slice(0, 10), milestone: false };
-const blankMedia = { type: 'photo', url: '', title: '', desc: '' };
+export default function AdminOverlay({ isOpen, onClose, content, onSave }) {
+  const [pin, setPin] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [activeTab, setActiveTab] = useState('diary');
+  const [formData, setFormData] = useState(content || {});
 
-export default function AdminOverlay({ data, onClose, onSaved }) {
-  const [pin, setPin] = useState(''); const [ok, setOk] = useState(false);
-  const [draft, setDraft] = useState(() => JSON.parse(JSON.stringify(data)));
-  const [tab, setTab] = useState(0); const [msg, setMsg] = useState('');
+  if (!isOpen) return null;
 
-  const post = (body, p = pin) => fetch('/api/content', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-pin': p }, body: JSON.stringify(body) });
-  const unlock = async () => {
-    const r = await post({ action: 'verify' });
-    if (r.ok) { setOk(true); setMsg(''); } else { setMsg('Wrong PIN'); setPin(''); }
+  const handleAuth = (e) => {
+    e.preventDefault();
+    if (pin === (process.env.NEXT_PUBLIC_ADMIN_PIN || '1234')) {
+      setIsAuthenticated(true);
+    } else {
+      alert('Galat PIN! Dubara check karein.');
+    }
   };
-  const save = async () => {
-    const r = await post(draft);
-    if (r.ok) { setMsg('Saved'); onSaved(draft); } else setMsg('Save failed');
+
+  const handleSave = async () => {
+    await onSave(formData);
+    alert('Changes kamyabi se save ho gaye!');
+    onClose();
   };
-  const upd = (path, val) => setDraft((d) => { const n = { ...d }; let o = n; for (let i = 0; i < path.length - 1; i++) { o[path[i]] = Array.isArray(o[path[i]]) ? [...o[path[i]]] : { ...o[path[i]] }; o = o[path[i]]; } o[path[path.length - 1]] = val; return n; });
-  const list = (key, blank) => ({
-    add: () => upd([key], [...draft[key], { ...blank }]),
-    del: (i) => upd([key], draft[key].filter((_, j) => j !== i)),
-  });
 
-  const shell = (children) => (
-    <motion.div initial={{ y: '-100%' }} animate={{ y: 0 }} exit={{ y: '-100%' }} transition={{ type: 'spring', damping: 26, stiffness: 220 }}
-      className="glass ui fixed z-40 inset-x-0 top-0 max-h-[92vh] overflow-y-auto p-5 md:mx-auto md:max-w-3xl md:rounded-b-2xl">
-      <div className="flex justify-between mb-4"><h2 className="text-lg">Admin</h2><button className="btn" onClick={onClose} aria-label="Close"><X size={16} /></button></div>
-      {children}
-    </motion.div>
-  );
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl p-4">
+      <div className="bg-[#0b0f19] border border-cyan-500/30 rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl text-slate-100 flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-[#070a12]">
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-cyan-400 animate-pulse"></span>
+            <h2 className="font-bold tracking-wider text-cyan-400 text-lg">SANCTUARY CONTROL PANEL</h2>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white">
+            <X size={20} />
+          </button>
+        </div>
 
-  if (!ok) return shell(
-    <div className="max-w-[240px] mx-auto text-center">
-      <div className="text-2xl tracking-[.4em] h-9">{'•'.repeat(pin.length)}</div>
-      <div className="grid grid-cols-3 gap-2 my-3">
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 'C', 0, 'OK'].map((k) => (
-          <button key={k} className="btn" onClick={() => k === 'C' ? setPin('') : k === 'OK' ? unlock() : setPin(pin + k)}>{k}</button>
-        ))}
+        {!isAuthenticated ? (
+          <form onSubmit={handleAuth} className="p-10 flex flex-col items-center justify-center gap-4">
+            <div className="p-4 bg-cyan-950/40 rounded-full border border-cyan-500/20 text-cyan-400 mb-2">
+              <KeyRound size={36} />
+            </div>
+            <h3 className="text-xl font-semibold">Enter Secret Master PIN</h3>
+            <input
+              type="password"
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              placeholder="••••"
+              className="px-6 py-3 bg-[#131b2e] border border-cyan-500/40 rounded-xl text-center text-2xl tracking-widest text-cyan-300 focus:outline-none focus:border-cyan-400 w-48"
+              autoFocus
+            />
+            <button type="submit" className="px-8 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-xl transition">
+              Unlock Panel
+            </button>
+          </form>
+        ) : (
+          <div className="flex flex-col flex-1 overflow-hidden">
+            {/* Tabs */}
+            <div className="flex border-b border-slate-800 bg-[#0c1220]">
+              {[
+                { id: 'diary', label: 'Diary & Story', icon: BookOpen },
+                { id: 'sheets', label: 'Sheets & Apps', icon: Database },
+                { id: 'media', label: 'Media & Videos', icon: Video },
+                { id: 'socials', label: 'Social Links', icon: Share2 },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition ${
+                      activeTab === tab.id
+                        ? 'border-cyan-400 text-cyan-400 bg-cyan-500/10'
+                        : 'border-transparent text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <Icon size={16} />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Tab Body */}
+            <div className="p-6 overflow-y-auto space-y-4 flex-1">
+              {activeTab === 'diary' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400">Story Title</label>
+                    <input
+                      type="text"
+                      value={formData.diaryTitle || ''}
+                      onChange={(e) => setFormData({ ...formData, diaryTitle: e.target.value })}
+                      placeholder="e.g. My Coding Journey & Reflections"
+                      className="w-full mt-1 p-3 bg-slate-900 border border-slate-700 rounded-lg focus:border-cyan-400 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400">Life Story & Philosophy (Markdown / Text)</label>
+                    <textarea
+                      rows={8}
+                      value={formData.diaryContent || ''}
+                      onChange={(e) => setFormData({ ...formData, diaryContent: e.target.value })}
+                      placeholder="Apne vichar, life lessons aur journey yahan likhein..."
+                      className="w-full mt-1 p-3 bg-slate-900 border border-slate-700 rounded-lg focus:border-cyan-400 outline-none font-mono text-sm"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'sheets' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400">Google Sheet Public Link / CSV Export</label>
+                    <input
+                      type="text"
+                      value={formData.sheetUrl || ''}
+                      onChange={(e) => setFormData({ ...formData, sheetUrl: e.target.value })}
+                      placeholder="https://docs.google.com/spreadsheets/d/.../export?format=csv"
+                      className="w-full mt-1 p-3 bg-slate-900 border border-slate-700 rounded-lg focus:border-cyan-400 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400">Streamlit Automation App Embed URL</label>
+                    <input
+                      type="text"
+                      value={formData.streamlitUrl || ''}
+                      onChange={(e) => setFormData({ ...formData, streamlitUrl: e.target.value })}
+                      placeholder="https://my-downtime-analyzer.streamlit.app/?embed=true"
+                      className="w-full mt-1 p-3 bg-slate-900 border border-slate-700 rounded-lg focus:border-cyan-400 outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'media' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400">Featured YouTube Video Embed Link</label>
+                    <input
+                      type="text"
+                      value={formData.youtubeVideo || ''}
+                      onChange={(e) => setFormData({ ...formData, youtubeVideo: e.target.value })}
+                      placeholder="https://www.youtube.com/embed/..."
+                      className="w-full mt-1 p-3 bg-slate-900 border border-slate-700 rounded-lg focus:border-cyan-400 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400">Photo / Gallery Direct URLs (Comma separated)</label>
+                    <textarea
+                      rows={4}
+                      value={formData.photoUrls || ''}
+                      onChange={(e) => setFormData({ ...formData, photoUrls: e.target.value })}
+                      placeholder="https://images.unsplash.com/..., https://..."
+                      className="w-full mt-1 p-3 bg-slate-900 border border-slate-700 rounded-lg focus:border-cyan-400 outline-none text-sm"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'socials' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400">Instagram Profile Link</label>
+                    <input
+                      type="text"
+                      value={formData.socials?.instagram || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          socials: { ...formData.socials, instagram: e.target.value },
+                        })
+                      }
+                      placeholder="https://instagram.com/yourhandle"
+                      className="w-full mt-1 p-3 bg-slate-900 border border-slate-700 rounded-lg focus:border-cyan-400 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400">YouTube Channel Link</label>
+                    <input
+                      type="text"
+                      value={formData.socials?.youtube || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          socials: { ...formData.socials, youtube: e.target.value },
+                        })
+                      }
+                      placeholder="https://youtube.com/@channel"
+                      className="w-full mt-1 p-3 bg-slate-900 border border-slate-700 rounded-lg focus:border-cyan-400 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400">Facebook Profile Link</label>
+                    <input
+                      type="text"
+                      value={formData.socials?.facebook || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          socials: { ...formData.socials, facebook: e.target.value },
+                        })
+                      }
+                      placeholder="https://facebook.com/..."
+                      className="w-full mt-1 p-3 bg-slate-900 border border-slate-700 rounded-lg focus:border-cyan-400 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400">GitHub / Other Link</label>
+                    <input
+                      type="text"
+                      value={formData.socials?.github || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          socials: { ...formData.socials, github: e.target.value },
+                        })
+                      }
+                      placeholder="https://github.com/..."
+                      className="w-full mt-1 p-3 bg-slate-900 border border-slate-700 rounded-lg focus:border-cyan-400 outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Save Button */}
+            <div className="p-4 border-t border-slate-800 bg-[#070a12] flex justify-end">
+              <button
+                onClick={handleSave}
+                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-bold rounded-xl transition"
+              >
+                <Save size={18} />
+                Save & Deploy Live
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-      <p className="text-rose-300 text-sm h-5">{msg}</p>
     </div>
   );
-
-  const diary = list('diary', blankDiary), media = list('media', blankMedia);
-  return shell(<>
-    <div className="flex gap-2 mb-4 flex-wrap">{TABS.map((t, i) => <button key={t} className="btn" style={i === tab ? { background: 'rgba(34,211,238,.28)' } : {}} onClick={() => setTab(i)}>{t}</button>)}</div>
-
-    {tab === 0 && <div className="space-y-4">
-      {draft.diary.map((d, i) => (<div key={i} className="p-3 rounded-lg border border-white/10 space-y-2">
-        <div className="flex gap-2"><input className="inp" placeholder="Title" value={d.title} onChange={(e) => upd(['diary', i, 'title'], e.target.value)} />
-          <input className="inp !w-40" type="date" value={d.date} onChange={(e) => upd(['diary', i, 'date'], e.target.value)} /></div>
-        <textarea className="inp" rows={5} placeholder="Write here (plain text / markdown)" value={d.body} onChange={(e) => upd(['diary', i, 'body'], e.target.value)} />
-        <div className="flex gap-2 items-center"><input className="inp" placeholder="tags, comma separated" value={(d.tags || []).join(', ')} onChange={(e) => upd(['diary', i, 'tags'], e.target.value.split(',').map((t) => t.trim()).filter(Boolean))} />
-          <label className="whitespace-nowrap text-sm"><input type="checkbox" checked={!!d.milestone} onChange={(e) => upd(['diary', i, 'milestone'], e.target.checked)} /> Milestone</label>
-          <button className="btn" onClick={() => diary.del(i)} aria-label="Delete entry"><Trash2 size={14} /></button></div>
-      </div>))}
-      <button className="btn" onClick={diary.add}><Plus size={14} className="inline" /> New entry</button>
-    </div>}
-
-    {tab === 1 && <div className="space-y-2">
-      <input className="inp" placeholder="Google Sheet ID" value={draft.links.sheetId} onChange={(e) => upd(['links', 'sheetId'], e.target.value)} />
-      <input className="inp" placeholder="Sheet tab name (e.g. Sheet1)" value={draft.links.sheetRange} onChange={(e) => upd(['links', 'sheetRange'], e.target.value)} />
-      <input className="inp" placeholder="Streamlit URL (https://….streamlit.app/?embed=true)" value={draft.links.streamlitUrl} onChange={(e) => upd(['links', 'streamlitUrl'], e.target.value)} />
-      <input className="inp" placeholder="Lo-fi audio URL (direct .mp3)" value={draft.links.audioUrl} onChange={(e) => upd(['links', 'audioUrl'], e.target.value)} />
-      <p className="text-xs opacity-60">The API key stays in the server env (GOOGLE_API_KEY), never in this form.</p>
-    </div>}
-
-    {tab === 2 && <div className="space-y-3">
-      {draft.media.map((m, i) => (<div key={i} className="p-3 rounded-lg border border-white/10 space-y-2">
-        <div className="flex gap-2"><select className="inp !w-28" value={m.type} onChange={(e) => upd(['media', i, 'type'], e.target.value)}><option value="photo">Photo</option><option value="video">Video</option></select>
-          <input className="inp" placeholder="URL (image, YouTube or direct video)" value={m.url} onChange={(e) => upd(['media', i, 'url'], e.target.value)} />
-          <button className="btn" onClick={() => media.del(i)} aria-label="Delete media"><Trash2 size={14} /></button></div>
-        <input className="inp" placeholder="Title" value={m.title} onChange={(e) => upd(['media', i, 'title'], e.target.value)} />
-        <input className="inp" placeholder="Description" value={m.desc} onChange={(e) => upd(['media', i, 'desc'], e.target.value)} />
-      </div>))}
-      <button className="btn" onClick={media.add}><Plus size={14} className="inline" /> Add media</button>
-    </div>}
-
-    {tab === 3 && <div className="space-y-2">
-      {['instagram', 'youtube', 'facebook', 'github'].map((k) => <input key={k} className="inp" placeholder={`${k} URL`} value={draft.socials[k] || ''} onChange={(e) => upd(['socials', k], e.target.value)} />)}
-    </div>}
-
-    <div className="flex items-center gap-3 mt-5"><button className="btn" onClick={save}>Save changes</button><span className="text-sm opacity-80">{msg}</span></div>
-  </>);
 }
