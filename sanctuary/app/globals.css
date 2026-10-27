@@ -1,0 +1,8 @@
+@tailwind base; @tailwind components; @tailwind utilities;
+html,body{height:100%;margin:0;background:#090d16;color:#e6ebf5;font-family:ui-serif,Georgia,serif;overflow:hidden}
+.glass{background:rgba(15,22,38,.62);backdrop-filter:blur(16px);border:1px solid rgba(120,200,255,.18);box-shadow:0 0 40px rgba(110,80,255,.12)}
+.ui{font-family:ui-sans-serif,system-ui,sans-serif}
+.btn{padding:.5rem .9rem;border-radius:.6rem;border:1px solid rgba(120,200,255,.3);background:rgba(34,211,238,.08);font-family:ui-sans-serif,system-ui}
+.btn:hover{background:rgba(34,211,238,.2)} .btn:focus-visible{outline:2px solid #22d3ee}
+.inp{width:100%;padding:.5rem .7rem;border-radius:.5rem;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12);color:inherit;font-family:ui-sans-serif,system-ui}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
