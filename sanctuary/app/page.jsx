@@ -1,49 +1,106 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
-import dynamic from 'next/dynamic';
-import { AnimatePresence } from 'framer-motion';
-import { BookOpen, Table2, Image as Img, Moon, Sun, Play, Pause } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import Scene3D from '@/components/Scene3D';
 import ContentModal from '@/components/ContentModal';
 import AdminOverlay from '@/components/AdminOverlay';
+import { Settings, ShieldCheck } from 'lucide-react';
 
-const Scene3D = dynamic(() => import('@/components/Scene3D'), { ssr: false, loading: () => <div className="ui p-6">Loading room…</div> });
-const EMPTY = { diary: [], media: [], links: {}, socials: {} };
+export default function Home() {
+  const [activeZone, setActiveZone] = useState(null);
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [content, setContent] = useState({
+    diaryTitle: 'My Coding & Life Journey',
+    diaryContent: 'Yahan aapke thoughts aur experiences aayenge.',
+    sheetUrl: '',
+    streamlitUrl: '',
+    youtubeVideo: '',
+    photoUrls: '',
+    socials: {
+      instagram: 'https://instagram.com/abhibhdauriya',
+      youtube: '',
+      facebook: '',
+      github: 'https://github.com/abhibhdauriya',
+    },
+  });
 
-export default function Page() {
-  const [data, setData] = useState(EMPTY);
-  const [active, setActive] = useState(null);
-  const [night, setNight] = useState(true);
-  const [admin, setAdmin] = useState(false);
-  const [playing, setPlaying] = useState(false);
-  const [vol, setVol] = useState(0.4);
-  const audio = useRef(null);
-
-  useEffect(() => { fetch('/api/content').then((r) => r.json()).then((d) => !d.error && setData({ ...EMPTY, ...d })).catch(() => {}); }, []);
+  // 1. Fetch live content from DB/API
   useEffect(() => {
-    const h = (e) => { if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'a') { e.preventDefault(); setAdmin((a) => !a); } };
-    window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h);
+    fetch('/api/content')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && Object.keys(data).length > 0) {
+          setContent(data);
+        }
+      })
+      .catch((err) => console.log('Using local fallback state:', err));
+
+    // 2. Secret URL check (?admin=true ya ?secret=1234)
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('admin') === 'true' || params.get('secret') === 'true') {
+        setIsAdminOpen(true);
+      }
+    }
   }, []);
-  useEffect(() => { if (audio.current) audio.current.volume = vol; }, [vol]);
-  const toggle = () => { const a = audio.current; if (!a || !data.links.audioUrl) return; playing ? a.pause() : a.play().catch(() => {}); setPlaying(!playing); };
 
-  const nav = [['diary', BookOpen, 'Diary'], ['data', Table2, 'Data'], ['media', Img, 'Media']];
+  // 3. Fallback Keyboard Shortcuts: `Ctrl + Shift + A` OR simple backtick key ( ` )
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Direct backtick key (tilde key below Esc) ya Ctrl+Shift+A
+      if ((e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') || e.key === '`') {
+        e.preventDefault();
+        setIsAdminOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Save content handler
+  const handleSaveContent = async (newContent) => {
+    setContent(newContent);
+    try {
+      await fetch('/api/content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newContent),
+      });
+    } catch (e) {
+      console.error('Error saving data:', e);
+    }
+  };
+
   return (
-    <main className="fixed inset-0">
-      <Scene3D active={active} onOpen={setActive} night={night} socials={data.socials} />
+    <main className="relative w-full h-screen overflow-hidden bg-[#05050a]">
+      {/* 3D Interactive World */}
+      <Scene3D onSelectZone={(zone) => setActiveZone(zone)} content={content} />
 
-      <div className="glass ui fixed z-20 top-4 left-4 flex items-center gap-2 px-3 py-2 rounded-xl">
-        <button className="btn" onClick={() => setNight(!night)} aria-label="Toggle day and night">{night ? <Sun size={16} /> : <Moon size={16} />}</button>
-        <button className="btn" onClick={toggle} aria-label={playing ? 'Pause music' : 'Play music'}>{playing ? <Pause size={16} /> : <Play size={16} />}</button>
-        <input type="range" min="0" max="1" step="0.05" value={vol} onChange={(e) => setVol(+e.target.value)} aria-label="Volume" className="w-20" />
-        <audio ref={audio} src={data.links.audioUrl || undefined} loop />
+      {/* 2D Reading & Media Modal */}
+      <ContentModal
+        activeZone={activeZone}
+        onClose={() => setActiveZone(null)}
+        content={content}
+      />
+
+      {/* Secret Admin Overlay */}
+      <AdminOverlay
+        isOpen={isAdminOpen}
+        onClose={() => setIsAdminOpen(false)}
+        content={content}
+        onSave={handleSaveContent}
+      />
+
+      {/* Fail-proof Admin Button (Bottom Right corner) */}
+      <div className="fixed bottom-4 right-4 z-30">
+        <button
+          onClick={() => setIsAdminOpen(true)}
+          title="Open Admin Panel (Shortcut: ` or Ctrl+Shift+A)"
+          className="p-3 bg-slate-900/80 hover:bg-cyan-950 border border-slate-700 hover:border-cyan-500 rounded-full text-slate-400 hover:text-cyan-400 backdrop-blur-md transition shadow-lg flex items-center gap-2 group"
+        >
+          <Settings size={18} className="group-hover:rotate-90 transition-transform duration-300" />
+          <span className="text-xs font-semibold pr-1 hidden group-hover:inline">Admin Hub</span>
+        </button>
       </div>
-
-      <nav className="glass ui fixed z-20 bottom-4 left-1/2 -translate-x-1/2 flex gap-2 p-2 rounded-2xl md:hidden">
-        {nav.map(([k, Icon, l]) => <button key={k} className="btn flex items-center gap-1" onClick={() => setActive(k)}><Icon size={14} />{l}</button>)}
-      </nav>
-
-      <AnimatePresence>{active && <ContentModal key="m" view={active} data={data} onClose={() => setActive(null)} />}</AnimatePresence>
-      <AnimatePresence>{admin && <AdminOverlay key="a" data={data} onClose={() => setAdmin(false)} onSaved={setData} />}</AnimatePresence>
     </main>
   );
 }
